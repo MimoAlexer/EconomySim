@@ -1,7 +1,7 @@
 // src/app.rs
 use crate::config::Config;
 use crate::data::compiled::Structure;
-use crate::simulation::{engine::Simulation, economy::EconomyMetrics};
+use crate::simulation::{economy::EconomyMetrics, engine::Simulation};
 use crossterm::event::{Event, KeyCode, KeyEvent};
 
 #[derive(Debug, Copy, Clone)]

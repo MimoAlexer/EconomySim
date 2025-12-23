@@ -11,7 +11,11 @@ pub struct Regions {
 pub fn split(area: Rect, show_debug: bool) -> Regions {
     let vertical = Layout::default()
         .direction(Direction::Vertical)
-        .constraints([Constraint::Length(3), Constraint::Min(5), Constraint::Length(2)])
+        .constraints([
+            Constraint::Length(3),
+            Constraint::Min(5),
+            Constraint::Length(2),
+        ])
         .split(area);
 
     if show_debug {

@@ -117,19 +117,21 @@ impl Structure {
 
             let mut inv = Vec::new();
             for it in h.starting_inventory.items {
-                let gid_u32 = good_ids
-                    .map
-                    .get(&it.good_ref)
-                    .ok_or_else(|| anyhow!("household_type {} references unknown good {}", h.id, it.good_ref))?;
+                let gid_u32 = good_ids.map.get(&it.good_ref).ok_or_else(|| {
+                    anyhow!(
+                        "household_type {} references unknown good {}",
+                        h.id,
+                        it.good_ref
+                    )
+                })?;
                 inv.push((GoodId(*gid_u32), it.qty));
             }
 
             let mut nrefs = Vec::new();
             for nr in h.needs.need_refs {
-                let nid_u32 = need_ids
-                    .map
-                    .get(&nr)
-                    .ok_or_else(|| anyhow!("household_type {} references unknown need {}", h.id, nr))?;
+                let nid_u32 = need_ids.map.get(&nr).ok_or_else(|| {
+                    anyhow!("household_type {} references unknown need {}", h.id, nr)
+                })?;
                 nrefs.push(NeedId(*nid_u32));
             }
 
@@ -153,19 +155,25 @@ impl Structure {
 
             let mut inputs = Vec::new();
             for it in r.inputs.items {
-                let gid_u32 = good_ids
-                    .map
-                    .get(&it.good_ref)
-                    .ok_or_else(|| anyhow!("rule {} input references unknown good {}", r.id, it.good_ref))?;
+                let gid_u32 = good_ids.map.get(&it.good_ref).ok_or_else(|| {
+                    anyhow!(
+                        "rule {} input references unknown good {}",
+                        r.id,
+                        it.good_ref
+                    )
+                })?;
                 inputs.push((GoodId(*gid_u32), it.qty));
             }
 
             let mut outputs = Vec::new();
             for it in r.outputs.items {
-                let gid_u32 = good_ids
-                    .map
-                    .get(&it.good_ref)
-                    .ok_or_else(|| anyhow!("rule {} output references unknown good {}", r.id, it.good_ref))?;
+                let gid_u32 = good_ids.map.get(&it.good_ref).ok_or_else(|| {
+                    anyhow!(
+                        "rule {} output references unknown good {}",
+                        r.id,
+                        it.good_ref
+                    )
+                })?;
                 outputs.push((GoodId(*gid_u32), it.qty));
             }
 

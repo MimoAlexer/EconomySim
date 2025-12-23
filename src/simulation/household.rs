@@ -13,7 +13,9 @@ pub struct Inventory {
 
 impl Inventory {
     pub fn new(goods_len: usize) -> Self {
-        Self { qty: vec![0.0; goods_len] }
+        Self {
+            qty: vec![0.0; goods_len],
+        }
     }
 
     pub fn get(&self, g: GoodId) -> f64 {
@@ -48,7 +50,13 @@ pub struct Household {
 }
 
 impl Household {
-    pub fn new(id: HouseholdId, kind: HouseholdTypeId, cash: f64, inventory: Inventory, needs: Vec<NeedState>) -> Self {
+    pub fn new(
+        id: HouseholdId,
+        kind: HouseholdTypeId,
+        cash: f64,
+        inventory: Inventory,
+        needs: Vec<NeedState>,
+    ) -> Self {
         Self {
             id,
             kind,

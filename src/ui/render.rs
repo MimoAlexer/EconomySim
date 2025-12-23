@@ -47,8 +47,14 @@ fn render_overview(f: &mut Frame, area: Rect, app: &App) {
         Line::from("Structure:"),
         Line::from(format!("  Goods: {}", app.sim.structure.goods.len())),
         Line::from(format!("  Needs: {}", app.sim.structure.needs.len())),
-        Line::from(format!("  Household types: {}", app.sim.structure.household_types.len())),
-        Line::from(format!("  Production rules: {}", app.sim.structure.production_rules.len())),
+        Line::from(format!(
+            "  Household types: {}",
+            app.sim.structure.household_types.len()
+        )),
+        Line::from(format!(
+            "  Production rules: {}",
+            app.sim.structure.production_rules.len()
+        )),
     ];
     let p = Paragraph::new(lines).block(Block::default().borders(Borders::ALL).title("Overview"));
     f.render_widget(p, area);
@@ -66,7 +72,10 @@ fn render_households(f: &mut Frame, area: Rect, app: &App) {
         .iter()
         .map(|h| {
             let kind = &app.sim.structure.household_types[h.kind.0 as usize].display_name;
-            ListItem::new(format!("#{} {} cash={:.1} util={:.2}", h.id.0, kind, h.cash, h.utility))
+            ListItem::new(format!(
+                "#{} {} cash={:.1} util={:.2}",
+                h.id.0, kind, h.cash, h.utility
+            ))
         })
         .collect();
 
@@ -85,7 +94,8 @@ fn render_households(f: &mut Frame, area: Rect, app: &App) {
 
 fn render_household_detail(f: &mut Frame, area: Rect, app: &App) {
     if app.sim.households.is_empty() {
-        let p = Paragraph::new("No households").block(Block::default().borders(Borders::ALL).title("Details"));
+        let p = Paragraph::new("No households")
+            .block(Block::default().borders(Borders::ALL).title("Details"));
         f.render_widget(p, area);
         return;
     }
@@ -159,9 +169,12 @@ fn render_markets(f: &mut Frame, area: Rect, app: &App) {
             Constraint::Percentage(20),
         ],
     )
-        .header(Row::new(vec!["Good", "Price", "Demand", "Supply"]).style(Style::default().add_modifier(Modifier::BOLD)))
-        .block(Block::default().borders(Borders::ALL).title("Market"))
-        .column_spacing(1);
+    .header(
+        Row::new(vec!["Good", "Price", "Demand", "Supply"])
+            .style(Style::default().add_modifier(Modifier::BOLD)),
+    )
+    .block(Block::default().borders(Borders::ALL).title("Market"))
+    .column_spacing(1);
 
     f.render_widget(table, area);
 }

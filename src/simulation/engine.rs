@@ -55,7 +55,13 @@ impl Simulation {
                 });
             }
 
-            self.households.push(Household::new(HouseholdId(i as u32), kind, td.starting_cash, inv, needs));
+            self.households.push(Household::new(
+                HouseholdId(i as u32),
+                kind,
+                td.starting_cash,
+                inv,
+                needs,
+            ));
         }
     }
 

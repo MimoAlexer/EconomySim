@@ -3,6 +3,7 @@ use crate::config::Config;
 use anyhow::Context;
 use quick_xml::de::from_str;
 use serde::Deserialize;
+use std::io::ErrorKind;
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct GoodsXml {
@@ -107,20 +108,37 @@ pub struct RawXml {
     pub production: ProductionRulesXml,
 }
 
+const GOODS_XML: &str = include_str!("goods.xml");
+const NEEDS_XML: &str = include_str!("needs.xml");
+const HOUSEHOLDS_XML: &str = include_str!("households.xml");
+const PRODUCTION_XML: &str = include_str!("production.xml");
+
+fn read_or_embedded(path: &str, embedded: &str, label: &str) -> anyhow::Result<String> {
+    match std::fs::read_to_string(path) {
+        Ok(txt) => Ok(txt),
+        Err(err) if err.kind() == ErrorKind::NotFound => {
+            eprintln!("Warning: {label} not found at '{path}', using embedded default.");
+            Ok(embedded.to_string())
+        }
+        Err(err) => Err(err).with_context(|| format!("reading {}", path)),
+    }
+}
+
 pub fn load_all(cfg: &Config) -> anyhow::Result<RawXml> {
-    let goods_s = std::fs::read_to_string(&cfg.data_paths.goods)
-        .with_context(|| format!("reading {}", cfg.data_paths.goods))?;
-    let needs_s = std::fs::read_to_string(&cfg.data_paths.needs)
-        .with_context(|| format!("reading {}", cfg.data_paths.needs))?;
-    let hh_s = std::fs::read_to_string(&cfg.data_paths.households)
-        .with_context(|| format!("reading {}", cfg.data_paths.households))?;
-    let prod_s = std::fs::read_to_string(&cfg.data_paths.production)
-        .with_context(|| format!("reading {}", cfg.data_paths.production))?;
+    let goods_s = read_or_embedded(&cfg.data_paths.goods, GOODS_XML, "goods.xml")?;
+    let needs_s = read_or_embedded(&cfg.data_paths.needs, NEEDS_XML, "needs.xml")?;
+    let hh_s = read_or_embedded(&cfg.data_paths.households, HOUSEHOLDS_XML, "households.xml")?;
+    let prod_s = read_or_embedded(&cfg.data_paths.production, PRODUCTION_XML, "production.xml")?;
 
     let goods: GoodsXml = from_str(&goods_s).context("parsing goods.xml")?;
     let needs: NeedsXml = from_str(&needs_s).context("parsing needs.xml")?;
     let household_types: HouseholdTypesXml = from_str(&hh_s).context("parsing households.xml")?;
     let production: ProductionRulesXml = from_str(&prod_s).context("parsing production.xml")?;
 
-    Ok(RawXml { goods, needs, household_types, production })
+    Ok(RawXml {
+        goods,
+        needs,
+        household_types,
+        production,
+    })
 }

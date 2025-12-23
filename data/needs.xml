@@ -1,0 +1,15 @@
+<!-- data/needs.xml -->
+<needs>
+    <need id="need_food">
+        <good_ref>food</good_ref>
+        <amount>1.0</amount>
+        <interval_ticks>20</interval_ticks>
+        <priority>1</priority>
+    </need>
+    <need id="need_water">
+        <good_ref>water</good_ref>
+        <amount>1.0</amount>
+        <interval_ticks>10</interval_ticks>
+        <priority>0</priority>
+    </need>
+</needs>

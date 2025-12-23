@@ -11,7 +11,10 @@ impl Ticker {
     pub fn new(hz: u64) -> Self {
         let period = Duration::from_secs_f64(1.0 / hz as f64);
         let now = Instant::now();
-        Self { period, next: now + period }
+        Self {
+            period,
+            next: now + period,
+        }
     }
 
     pub fn should_tick(&mut self) -> bool {

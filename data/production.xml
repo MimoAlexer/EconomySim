@@ -1,0 +1,13 @@
+<!-- data/production.xml -->
+<production_rules>
+    <rule id="farm_food">
+        <display_name>Farm Food</display_name>
+        <ticks>10</ticks>
+        <inputs>
+            <item good_ref="water" qty="0.5" />
+        </inputs>
+        <outputs>
+            <item good_ref="food" qty="1.0" />
+        </outputs>
+    </rule>
+</production_rules>
