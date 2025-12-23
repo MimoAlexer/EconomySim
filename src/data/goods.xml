@@ -1,0 +1,15 @@
+<!-- data/goods.xml -->
+<goods>
+    <good id="food">
+        <display_name>Food</display_name>
+        <base_price>10.0</base_price>
+        <decay_rate>0.01</decay_rate>
+        <stackable>true</stackable>
+    </good>
+    <good id="water">
+        <display_name>Water</display_name>
+        <base_price>2.5</base_price>
+        <decay_rate>0.0</decay_rate>
+        <stackable>true</stackable>
+    </good>
+</goods>

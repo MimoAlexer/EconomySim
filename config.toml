@@ -1,0 +1,12 @@
+# config.toml
+tick_hz = 20
+ui_hz = 30
+seed = 1337
+start_households = 200
+debug = false
+
+[data_paths]
+goods = "data/goods.xml"
+needs = "data/needs.xml"
+households = "data/households.xml"
+production = "data/production.xml"
