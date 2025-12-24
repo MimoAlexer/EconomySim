@@ -15,6 +15,7 @@ pub struct DataPaths {
     pub needs: String,
     pub households: String,
     pub production: String,
+    pub stocks: String,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -40,6 +41,7 @@ impl Default for Config {
                 needs: "data/needs.xml".to_string(),
                 households: "data/households.xml".to_string(),
                 production: "data/production.xml".to_string(),
+                stocks: "data/stocks.xml".to_string(),
             },
         }
     }

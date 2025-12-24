@@ -3,27 +3,42 @@
     <household_type id="worker">
         <display_name>Worker</display_name>
         <starting_cash>1000</starting_cash>
+
         <starting_inventory>
             <item good_ref="food" qty="5.0" />
             <item good_ref="water" qty="10.0" />
         </starting_inventory>
+
+        <starting_portfolio>
+            <item stock_ref="acme" qty="2.0" />
+            <item stock_ref="grid" qty="10.0" />
+        </starting_portfolio>
+
         <needs>
             <need_ref>need_food</need_ref>
             <need_ref>need_water</need_ref>
         </needs>
+
         <income_per_tick>0.8</income_per_tick>
     </household_type>
 
     <household_type id="poor">
         <display_name>Poor</display_name>
         <starting_cash>200</starting_cash>
+
         <starting_inventory>
             <item good_ref="water" qty="3.0" />
         </starting_inventory>
+
+        <starting_portfolio>
+            <item stock_ref="grid" qty="2.0" />
+        </starting_portfolio>
+
         <needs>
             <need_ref>need_food</need_ref>
             <need_ref>need_water</need_ref>
         </needs>
+
         <income_per_tick>0.2</income_per_tick>
     </household_type>
 </household_types>

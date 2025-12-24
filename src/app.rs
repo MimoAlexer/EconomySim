@@ -8,8 +8,8 @@ use crossterm::event::{Event, KeyCode, KeyEvent};
 pub enum View {
     Overview,
     Households,
-    Markets,
-    Debug,
+    Goods,
+    Stocks,
 }
 
 #[derive(Debug)]
@@ -17,10 +17,10 @@ pub struct App {
     pub cfg: Config,
     pub sim: Simulation,
     pub paused: bool,
-    pub show_debug: bool,
     pub view: View,
     pub selected_household: usize,
     pub derived: EconomyMetrics,
+    pub last_action: String,
 }
 
 impl App {
@@ -30,10 +30,10 @@ impl App {
             cfg,
             sim,
             paused: false,
-            show_debug: false,
             view: View::Overview,
             selected_household: 0,
             derived: EconomyMetrics::default(),
+            last_action: String::new(),
         };
         app.recompute_metrics();
         app
@@ -43,6 +43,7 @@ impl App {
         let structure = self.sim.structure.clone();
         self.sim = Simulation::new(structure, self.cfg.seed, self.cfg.start_households);
         self.selected_household = 0;
+        self.last_action.clear();
         self.recompute_metrics();
     }
 
@@ -57,11 +58,7 @@ impl App {
             tick: self.sim.tick,
             households: self.sim.households.len(),
             total_cash,
-            avg_utility: if self.sim.households.is_empty() {
-                0.0
-            } else {
-                total_utility / self.sim.households.len() as f64
-            },
+            avg_utility: if self.sim.households.is_empty() { 0.0 } else { total_utility / self.sim.households.len() as f64 },
         };
     }
 
@@ -83,11 +80,14 @@ impl App {
                 }
             }
             KeyCode::Char('r') => self.reset(),
-            KeyCode::Char('d') => self.show_debug = !self.show_debug,
             KeyCode::Left => self.prev_view(),
             KeyCode::Right => self.next_view(),
             KeyCode::Up => self.select_prev(),
             KeyCode::Down => self.select_next(),
+            KeyCode::Char('x') => {
+                self.sim.force_sell_all_stocks();
+                self.last_action = "FORCE SELL ALL STOCKS".to_string();
+            }
             _ => {}
         }
         false
@@ -95,19 +95,19 @@ impl App {
 
     fn prev_view(&mut self) {
         self.view = match self.view {
-            View::Overview => View::Debug,
+            View::Overview => View::Stocks,
             View::Households => View::Overview,
-            View::Markets => View::Households,
-            View::Debug => View::Markets,
+            View::Goods => View::Households,
+            View::Stocks => View::Goods,
         };
     }
 
     fn next_view(&mut self) {
         self.view = match self.view {
             View::Overview => View::Households,
-            View::Households => View::Markets,
-            View::Markets => View::Debug,
-            View::Debug => View::Overview,
+            View::Households => View::Goods,
+            View::Goods => View::Stocks,
+            View::Stocks => View::Overview,
         };
     }
 

@@ -1,6 +1,6 @@
 // src/simulation/household.rs
 use crate::data::compiled::{NeedDef, Structure};
-use crate::data::ids::{GoodId, HouseholdTypeId, NeedId};
+use crate::data::ids::{GoodId, HouseholdTypeId, NeedId, StockId};
 use smallvec::SmallVec;
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
@@ -30,6 +30,33 @@ impl Inventory {
 }
 
 #[derive(Debug, Clone)]
+pub struct Portfolio {
+    pub qty: Vec<f64>,
+}
+
+impl Portfolio {
+    pub fn new(stocks_len: usize) -> Self {
+        Self { qty: vec![0.0; stocks_len] }
+    }
+
+    pub fn get(&self, s: StockId) -> f64 {
+        self.qty[s.0 as usize]
+    }
+
+    pub fn add(&mut self, s: StockId, amount: f64) {
+        let v = &mut self.qty[s.0 as usize];
+        *v += amount;
+        if *v < 0.0 {
+            *v = 0.0;
+        }
+    }
+
+    pub fn clear_all(&mut self) {
+        self.qty.fill(0.0);
+    }
+}
+
+#[derive(Debug, Clone)]
 pub struct NeedState {
     pub need: NeedId,
     pub next_due_in: u64,
@@ -42,18 +69,27 @@ pub struct Household {
     pub kind: HouseholdTypeId,
     pub cash: f64,
     pub inventory: Inventory,
+    pub portfolio: Portfolio,
     pub needs: Vec<NeedState>,
     pub utility: f64,
     pub last_consumed: SmallVec<[(GoodId, f64); 8]>,
 }
 
 impl Household {
-    pub fn new(id: HouseholdId, kind: HouseholdTypeId, cash: f64, inventory: Inventory, needs: Vec<NeedState>) -> Self {
+    pub fn new(
+        id: HouseholdId,
+        kind: HouseholdTypeId,
+        cash: f64,
+        inventory: Inventory,
+        portfolio: Portfolio,
+        needs: Vec<NeedState>,
+    ) -> Self {
         Self {
             id,
             kind,
             cash,
             inventory,
+            portfolio,
             needs,
             utility: 0.0,
             last_consumed: SmallVec::new(),

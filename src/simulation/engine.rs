@@ -1,9 +1,10 @@
 // src/simulation/engine.rs
 use crate::data::compiled::Structure;
-use crate::data::ids::HouseholdTypeId;
+use crate::data::ids::{HouseholdTypeId, StockId};
 use crate::simulation::economy::EconomyMetrics;
-use crate::simulation::household::{Household, HouseholdId, Inventory, NeedState};
+use crate::simulation::household::{Household, HouseholdId, Inventory, NeedState, Portfolio};
 use crate::simulation::market::Market;
+use crate::simulation::stock_market::StockMarket;
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha8Rng;
 
@@ -12,6 +13,7 @@ pub struct Simulation {
     pub structure: Structure,
     pub households: Vec<Household>,
     pub market: Market,
+    pub stock_market: StockMarket,
     pub tick: u64,
     rng: ChaCha8Rng,
     pub metrics: EconomyMetrics,
@@ -21,10 +23,12 @@ impl Simulation {
     pub fn new(structure: Structure, seed: u64, start_households: usize) -> Self {
         let rng = ChaCha8Rng::seed_from_u64(seed);
         let market = Market::new(&structure);
+        let stock_market = StockMarket::new(&structure);
         let mut sim = Self {
             structure,
             households: Vec::new(),
             market,
+            stock_market,
             tick: 0,
             rng,
             metrics: EconomyMetrics::default(),
@@ -45,6 +49,11 @@ impl Simulation {
                 inv.add(g, q);
             }
 
+            let mut port = Portfolio::new(self.structure.stocks.len());
+            for &(sid, q) in &td.starting_portfolio {
+                port.add(sid, q);
+            }
+
             let mut needs = Vec::new();
             for &nid in &td.needs {
                 let nd = &self.structure.needs[nid.0 as usize];
@@ -55,13 +64,14 @@ impl Simulation {
                 });
             }
 
-            self.households.push(Household::new(HouseholdId(i as u32), kind, td.starting_cash, inv, needs));
+            self.households.push(Household::new(HouseholdId(i as u32), kind, td.starting_cash, inv, port, needs));
         }
     }
 
     pub fn tick(&mut self) {
         self.tick += 1;
         self.market.reset_pressures();
+        self.stock_market.reset();
 
         for h in &mut self.households {
             let td = &self.structure.household_types[h.kind.0 as usize];
@@ -92,7 +102,61 @@ impl Simulation {
             }
         }
 
+        self.simulate_stock_trading();
         self.market.adjust_prices();
+        self.stock_market.adjust(&self.structure);
         self.metrics.tick = self.tick;
+    }
+
+    fn simulate_stock_trading(&mut self) {
+        if self.structure.stocks.is_empty() {
+            return;
+        }
+
+        for h in &mut self.households {
+            let invest_budget = (h.cash - 150.0).max(0.0) * 0.01;
+            if invest_budget <= 0.0 {
+                continue;
+            }
+
+            let sid = StockId((self.rng.gen::<u32>() as usize % self.structure.stocks.len()) as u32);
+            let p = self.stock_market.price[sid.0 as usize];
+            if p <= 0.0 {
+                continue;
+            }
+
+            let qty = (invest_budget / p).max(0.0);
+            if qty <= 0.0 {
+                continue;
+            }
+
+            let cost = qty * p;
+            if h.cash >= cost {
+                h.cash -= cost;
+                h.portfolio.add(sid, qty);
+                self.stock_market.note_buy(sid, qty);
+            }
+        }
+    }
+
+    pub fn force_sell_all_stocks(&mut self) {
+        if self.structure.stocks.is_empty() {
+            return;
+        }
+
+        for h in &mut self.households {
+            for i in 0..self.structure.stocks.len() {
+                let sid = StockId(i as u32);
+                let qty = h.portfolio.get(sid);
+                if qty <= 0.0 {
+                    continue;
+                }
+                let p = self.stock_market.price[i];
+                let proceeds = qty * p;
+                h.cash += proceeds;
+                h.portfolio.add(sid, -qty);
+                self.stock_market.note_sell(sid, qty);
+            }
+        }
     }
 }

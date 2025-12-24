@@ -7,55 +7,75 @@ use ratatui::{
 };
 
 pub fn render(f: &mut Frame, app: &mut App) {
-    let regions = crate::ui::layout::split(f.area(), app.show_debug);
+    let area = f.area();
+    let chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([Constraint::Length(3), Constraint::Min(5), Constraint::Length(2)])
+        .split(area);
 
-    render_header(f, regions.header, app);
-    render_footer(f, regions.footer);
-
+    render_header(f, chunks[0], app);
     match app.view {
-        View::Overview => render_overview(f, regions.main, app),
-        View::Households => render_households(f, regions.main, app),
-        View::Markets => render_markets(f, regions.main, app),
-        View::Debug => render_debug_main(f, regions.main, app),
+        View::Overview => render_overview(f, chunks[1], app),
+        View::Households => render_households(f, chunks[1], app),
+        View::Goods => render_goods(f, chunks[1], app),
+        View::Stocks => render_stocks(f, chunks[1], app),
     }
+    render_footer(f, chunks[2], app);
+}
 
-    if let Some(dbg) = regions.debug {
-        render_debug_side(f, dbg, app);
+fn tab_title(v: View) -> &'static str {
+    match v {
+        View::Overview => "Overview",
+        View::Households => "Households",
+        View::Goods => "Goods",
+        View::Stocks => "Stocks",
     }
 }
 
 fn render_header(f: &mut Frame, area: Rect, app: &App) {
-    let title = format!(
-        "EconomySim | tick={} | households={} | paused={} | view={:?}",
-        app.derived.tick, app.derived.households, app.paused, app.view
-    );
-    let block = Block::default().borders(Borders::ALL).title(title);
-    f.render_widget(block, area);
+    let tabs = ["Overview", "Households", "Goods", "Stocks"];
+    let idx = match app.view {
+        View::Overview => 0,
+        View::Households => 1,
+        View::Goods => 2,
+        View::Stocks => 3,
+    };
+    let t = Tabs::new(tabs)
+        .select(idx)
+        .block(Block::default().borders(Borders::ALL).title(format!(
+            "EconomySim  | tick {} | households {} | paused {}",
+            app.derived.tick, app.derived.households, app.paused
+        )))
+        .highlight_style(Style::default().add_modifier(Modifier::BOLD));
+
+    f.render_widget(t, area);
 }
 
-fn render_footer(f: &mut Frame, area: Rect) {
-    let help = "q quit | p pause | . step | ←/→ view | ↑/↓ select | r reset | d debug";
-    let p = Paragraph::new(help).block(Block::default().borders(Borders::ALL));
+fn render_footer(f: &mut Frame, area: Rect, app: &App) {
+    let help = "q quit | p pause | . step | ←/→ tabs | ↑/↓ select | r reset | x force sell all stocks";
+    let msg = if app.last_action.is_empty() { help.to_string() } else { format!("{}  |  last: {}", help, app.last_action) };
+    let p = Paragraph::new(msg).block(Block::default().borders(Borders::ALL));
     f.render_widget(p, area);
 }
 
 fn render_overview(f: &mut Frame, area: Rect, app: &App) {
     let lines = vec![
+        Line::from(Span::styled(tab_title(app.view), Style::default().add_modifier(Modifier::BOLD))),
+        Line::from(""),
         Line::from(format!("Total cash: {:.2}", app.derived.total_cash)),
         Line::from(format!("Average utility: {:.3}", app.derived.avg_utility)),
         Line::from(""),
-        Line::from("Structure:"),
-        Line::from(format!("  Goods: {}", app.sim.structure.goods.len())),
-        Line::from(format!("  Needs: {}", app.sim.structure.needs.len())),
-        Line::from(format!("  Household types: {}", app.sim.structure.household_types.len())),
-        Line::from(format!("  Production rules: {}", app.sim.structure.production_rules.len())),
+        Line::from(format!("Goods: {}", app.sim.structure.goods.len())),
+        Line::from(format!("Needs: {}", app.sim.structure.needs.len())),
+        Line::from(format!("Household types: {}", app.sim.structure.household_types.len())),
+        Line::from(format!("Stocks: {}", app.sim.structure.stocks.len())),
     ];
-    let p = Paragraph::new(lines).block(Block::default().borders(Borders::ALL).title("Overview"));
+    let p = Paragraph::new(lines).block(Block::default().borders(Borders::ALL).title("Overview")).wrap(Wrap { trim: true });
     f.render_widget(p, area);
 }
 
-fn render_households(f: &mut Frame, area: Rect, app: &App) {
-    let chunks = Layout::default()
+fn render_households(f: &mut Frame, area: Rect, app: &mut App) {
+    let cols = Layout::default()
         .direction(Direction::Horizontal)
         .constraints([Constraint::Percentage(45), Constraint::Percentage(55)])
         .split(area);
@@ -66,7 +86,7 @@ fn render_households(f: &mut Frame, area: Rect, app: &App) {
         .iter()
         .map(|h| {
             let kind = &app.sim.structure.household_types[h.kind.0 as usize].display_name;
-            ListItem::new(format!("#{} {} cash={:.1} util={:.2}", h.id.0, kind, h.cash, h.utility))
+            ListItem::new(format!("#{} {:<10} cash={:>8.2} util={:>6.2}", h.id.0, kind, h.cash, h.utility))
         })
         .collect();
 
@@ -78,15 +98,14 @@ fn render_households(f: &mut Frame, area: Rect, app: &App) {
     let list = List::new(items)
         .block(Block::default().borders(Borders::ALL).title("Households"))
         .highlight_style(Style::default().add_modifier(Modifier::REVERSED));
-    f.render_stateful_widget(list, chunks[0], &mut state);
+    f.render_stateful_widget(list, cols[0], &mut state);
 
-    render_household_detail(f, chunks[1], app);
+    render_household_detail(f, cols[1], app);
 }
 
 fn render_household_detail(f: &mut Frame, area: Rect, app: &App) {
     if app.sim.households.is_empty() {
-        let p = Paragraph::new("No households").block(Block::default().borders(Borders::ALL).title("Details"));
-        f.render_widget(p, area);
+        f.render_widget(Paragraph::new("No households").block(Block::default().borders(Borders::ALL)), area);
         return;
     }
 
@@ -94,52 +113,34 @@ fn render_household_detail(f: &mut Frame, area: Rect, app: &App) {
     let h = &app.sim.households[idx];
     let kind = &app.sim.structure.household_types[h.kind.0 as usize].display_name;
 
-    let mut lines: Vec<Line> = vec![
-        Line::from(format!("Household #{}", h.id.0)),
-        Line::from(format!("Type: {}", kind)),
-        Line::from(format!("Cash: {:.2}", h.cash)),
-        Line::from(format!("Utility: {:.3}", h.utility)),
-        Line::from(""),
-        Line::from("Last consumed:"),
-    ];
-
-    if h.last_consumed.is_empty() {
-        lines.push(Line::from("  (none)"));
-    } else {
-        for (g, a) in &h.last_consumed {
-            let name = app.sim.structure.good_name(*g);
-            lines.push(Line::from(format!("  {} x{:.2}", name, a)));
-        }
-    }
-
+    let mut lines = Vec::new();
+    lines.push(Line::from(format!("Household #{}  |  Type: {}", h.id.0, kind)));
+    lines.push(Line::from(format!("Cash: {:.2}  |  Utility: {:.3}", h.cash, h.utility)));
     lines.push(Line::from(""));
-    lines.push(Line::from("Inventory (non-zero):"));
+
+    lines.push(Line::from(Span::styled("Inventory", Style::default().add_modifier(Modifier::BOLD))));
     for gd in &app.sim.structure.goods {
         let q = h.inventory.get(gd.id);
         if q.abs() > 1e-9 {
-            lines.push(Line::from(format!("  {}: {:.2}", gd.display_name, q)));
+            lines.push(Line::from(format!("  {:<18} {:>10.2}", gd.display_name, q)));
         }
     }
 
     lines.push(Line::from(""));
-    lines.push(Line::from("Needs:"));
-    for ns in &h.needs {
-        let nd = &app.sim.structure.needs[ns.need.0 as usize];
-        let gname = app.sim.structure.good_name(nd.good);
-        lines.push(Line::from(format!(
-            "  {} need: {} amt={:.2} due_in={} ok_last={}",
-            ns.need.0, gname, nd.amount, ns.next_due_in, ns.fulfilled_last
-        )));
+    lines.push(Line::from(Span::styled("Portfolio", Style::default().add_modifier(Modifier::BOLD))));
+    for st in &app.sim.structure.stocks {
+        let q = h.portfolio.get(st.id);
+        if q.abs() > 1e-9 {
+            lines.push(Line::from(format!("  {:<18} {:>10.4}", st.display_name, q)));
+        }
     }
 
-    let p = Paragraph::new(lines)
-        .block(Block::default().borders(Borders::ALL).title("Details"))
-        .wrap(Wrap { trim: true });
+    let p = Paragraph::new(lines).block(Block::default().borders(Borders::ALL).title("Details")).wrap(Wrap { trim: true });
     f.render_widget(p, area);
 }
 
-fn render_markets(f: &mut Frame, area: Rect, app: &App) {
-    let mut rows: Vec<Row> = Vec::new();
+fn render_goods(f: &mut Frame, area: Rect, app: &App) {
+    let mut rows = Vec::new();
     for gd in &app.sim.structure.goods {
         let i = gd.id.0 as usize;
         rows.push(Row::new(vec![
@@ -153,43 +154,43 @@ fn render_markets(f: &mut Frame, area: Rect, app: &App) {
     let table = Table::new(
         rows,
         [
-            Constraint::Percentage(40),
+            Constraint::Percentage(45),
             Constraint::Percentage(20),
-            Constraint::Percentage(20),
-            Constraint::Percentage(20),
+            Constraint::Percentage(17),
+            Constraint::Percentage(18),
         ],
     )
-        .header(Row::new(vec!["Good", "Price", "Demand", "Supply"]).style(Style::default().add_modifier(Modifier::BOLD)))
-        .block(Block::default().borders(Borders::ALL).title("Market"))
+        .header(Row::new(vec!["Good", "Price", "Buy", "Sell"]).style(Style::default().add_modifier(Modifier::BOLD)))
+        .block(Block::default().borders(Borders::ALL).title("Goods Market"))
         .column_spacing(1);
 
     f.render_widget(table, area);
 }
 
-fn render_debug_main(f: &mut Frame, area: Rect, app: &App) {
-    let text = vec![
-        Line::from("Debug View"),
-        Line::from(format!("tick={}", app.sim.tick)),
-        Line::from(format!("seed={}", app.cfg.seed)),
-    ];
-    let p = Paragraph::new(text).block(Block::default().borders(Borders::ALL).title("Debug"));
-    f.render_widget(p, area);
-}
+fn render_stocks(f: &mut Frame, area: Rect, app: &App) {
+    let mut rows = Vec::new();
+    for st in &app.sim.structure.stocks {
+        let i = st.id.0 as usize;
+        rows.push(Row::new(vec![
+            st.display_name.clone(),
+            format!("{:.3}", app.sim.stock_market.price[i]),
+            format!("{:.2}", app.sim.stock_market.demand[i]),
+            format!("{:.2}", app.sim.stock_market.supply[i]),
+        ]));
+    }
 
-fn render_debug_side(f: &mut Frame, area: Rect, app: &App) {
-    let lines = vec![
-        Line::from("Derived"),
-        Line::from(format!("total_cash={:.2}", app.derived.total_cash)),
-        Line::from(format!("avg_utility={:.3}", app.derived.avg_utility)),
-        Line::from(""),
-        Line::from("Config"),
-        Line::from(format!("tick_hz={}", app.cfg.tick_hz)),
-        Line::from(format!("ui_hz={}", app.cfg.ui_hz)),
-        Line::from(format!("start_households={}", app.cfg.start_households)),
-        Line::from(format!("debug={}", app.cfg.debug)),
-    ];
-    let p = Paragraph::new(lines)
-        .block(Block::default().borders(Borders::ALL).title("Panel"))
-        .wrap(Wrap { trim: true });
-    f.render_widget(p, area);
+    let table = Table::new(
+        rows,
+        [
+            Constraint::Percentage(45),
+            Constraint::Percentage(20),
+            Constraint::Percentage(17),
+            Constraint::Percentage(18),
+        ],
+    )
+        .header(Row::new(vec!["Stock", "Price", "Buy", "Sell"]).style(Style::default().add_modifier(Modifier::BOLD)))
+        .block(Block::default().borders(Borders::ALL).title("Stock Market"))
+        .column_spacing(1);
+
+    f.render_widget(table, area);
 }

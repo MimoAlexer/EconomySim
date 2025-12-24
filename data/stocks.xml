@@ -1,0 +1,23 @@
+<!-- data/stocks.xml -->
+<stocks>
+    <stock id="acme">
+        <display_name>ACME Corp</display_name>
+        <base_price>100.0</base_price>
+        <volatility>0.04</volatility>
+        <shares_outstanding>1000000</shares_outstanding>
+    </stock>
+
+    <stock id="omni">
+        <display_name>Omni Industries</display_name>
+        <base_price>45.0</base_price>
+        <volatility>0.06</volatility>
+        <shares_outstanding>2000000</shares_outstanding>
+    </stock>
+
+    <stock id="grid">
+        <display_name>Grid Utilities</display_name>
+        <base_price>20.0</base_price>
+        <volatility>0.02</volatility>
+        <shares_outstanding>5000000</shares_outstanding>
+    </stock>
+</stocks>

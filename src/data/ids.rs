@@ -15,6 +15,9 @@ pub struct HouseholdTypeId(pub u32);
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct RuleId(pub u32);
 
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+pub struct StockId(pub u32);
+
 #[derive(Debug, Default, Clone)]
 pub struct Interner {
     pub map: HashMap<String, u32>,
@@ -30,10 +33,6 @@ impl Interner {
         self.vec.push(s.to_string());
         self.map.insert(s.to_string(), id);
         id
-    }
-
-    pub fn resolve(&self, id: u32) -> &str {
-        &self.vec[id as usize]
     }
 
     pub fn len(&self) -> usize {

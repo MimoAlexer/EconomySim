@@ -29,6 +29,7 @@ pub struct HouseholdTypeDef {
     pub display_name: String,
     pub starting_cash: f64,
     pub starting_inventory: Vec<(GoodId, f64)>,
+    pub starting_portfolio: Vec<(StockId, f64)>,
     pub needs: Vec<NeedId>,
     pub income_per_tick: f64,
 }
@@ -43,15 +44,26 @@ pub struct ProductionRuleDef {
 }
 
 #[derive(Debug, Clone)]
+pub struct StockDef {
+    pub id: StockId,
+    pub display_name: String,
+    pub base_price: f64,
+    pub volatility: f64,
+    pub shares_outstanding: u64,
+}
+
+#[derive(Debug, Clone)]
 pub struct Structure {
     pub goods: Vec<GoodDef>,
     pub needs: Vec<NeedDef>,
     pub household_types: Vec<HouseholdTypeDef>,
     pub production_rules: Vec<ProductionRuleDef>,
+    pub stocks: Vec<StockDef>,
     pub good_ids: Interner,
     pub need_ids: Interner,
     pub household_type_ids: Interner,
     pub rule_ids: Interner,
+    pub stock_ids: Interner,
 }
 
 impl Structure {
@@ -60,6 +72,7 @@ impl Structure {
         let mut need_ids = Interner::default();
         let mut household_type_ids = Interner::default();
         let mut rule_ids = Interner::default();
+        let mut stock_ids = Interner::default();
 
         for g in &raw.goods.goods {
             good_ids.intern(&g.id);
@@ -73,6 +86,9 @@ impl Structure {
         for r in &raw.production.rules {
             rule_ids.intern(&r.id);
         }
+        for s in &raw.stocks.stocks {
+            stock_ids.intern(&s.id);
+        }
 
         let mut goods = vec![None; good_ids.len()];
         for g in raw.goods.goods {
@@ -85,31 +101,34 @@ impl Structure {
                 stackable: g.stackable,
             });
         }
-        let goods: Vec<GoodDef> = goods
-            .into_iter()
-            .map(|o| o.ok_or_else(|| anyhow!("missing good slot")))
-            .collect::<Result<_, _>>()?;
+        let goods: Vec<GoodDef> = goods.into_iter().map(|o| o.ok_or_else(|| anyhow!("missing good slot"))).collect::<Result<_, _>>()?;
 
         let mut needs = vec![None; need_ids.len()];
         for n in raw.needs.needs {
             let id = NeedId(need_ids.intern(&n.id));
-            let good_u32 = good_ids
-                .map
-                .get(&n.good_ref)
-                .ok_or_else(|| anyhow!("need {} references unknown good {}", n.id, n.good_ref))?;
-            let good = GoodId(*good_u32);
+            let good_u32 = good_ids.map.get(&n.good_ref).ok_or_else(|| anyhow!("need {} references unknown good {}", n.id, n.good_ref))?;
             needs[id.0 as usize] = Some(NeedDef {
                 id,
-                good,
+                good: GoodId(*good_u32),
                 amount: n.amount,
                 interval_ticks: n.interval_ticks.max(1),
                 priority: n.priority,
             });
         }
-        let needs: Vec<NeedDef> = needs
-            .into_iter()
-            .map(|o| o.ok_or_else(|| anyhow!("missing need slot")))
-            .collect::<Result<_, _>>()?;
+        let needs: Vec<NeedDef> = needs.into_iter().map(|o| o.ok_or_else(|| anyhow!("missing need slot"))).collect::<Result<_, _>>()?;
+
+        let mut stocks = vec![None; stock_ids.len()];
+        for s in raw.stocks.stocks {
+            let id = StockId(stock_ids.intern(&s.id));
+            stocks[id.0 as usize] = Some(StockDef {
+                id,
+                display_name: s.display_name,
+                base_price: s.base_price,
+                volatility: s.volatility,
+                shares_outstanding: s.shares_outstanding,
+            });
+        }
+        let stocks: Vec<StockDef> = stocks.into_iter().map(|o| o.ok_or_else(|| anyhow!("missing stock slot"))).collect::<Result<_, _>>()?;
 
         let mut household_types = vec![None; household_type_ids.len()];
         for h in raw.household_types.types {
@@ -117,19 +136,19 @@ impl Structure {
 
             let mut inv = Vec::new();
             for it in h.starting_inventory.items {
-                let gid_u32 = good_ids
-                    .map
-                    .get(&it.good_ref)
-                    .ok_or_else(|| anyhow!("household_type {} references unknown good {}", h.id, it.good_ref))?;
+                let gid_u32 = good_ids.map.get(&it.good_ref).ok_or_else(|| anyhow!("household_type {} references unknown good {}", h.id, it.good_ref))?;
                 inv.push((GoodId(*gid_u32), it.qty));
+            }
+
+            let mut port = Vec::new();
+            for it in h.starting_portfolio.items {
+                let sid_u32 = stock_ids.map.get(&it.stock_ref).ok_or_else(|| anyhow!("household_type {} references unknown stock {}", h.id, it.stock_ref))?;
+                port.push((StockId(*sid_u32), it.qty));
             }
 
             let mut nrefs = Vec::new();
             for nr in h.needs.need_refs {
-                let nid_u32 = need_ids
-                    .map
-                    .get(&nr)
-                    .ok_or_else(|| anyhow!("household_type {} references unknown need {}", h.id, nr))?;
+                let nid_u32 = need_ids.map.get(&nr).ok_or_else(|| anyhow!("household_type {} references unknown need {}", h.id, nr))?;
                 nrefs.push(NeedId(*nid_u32));
             }
 
@@ -138,6 +157,7 @@ impl Structure {
                 display_name: h.display_name,
                 starting_cash: h.starting_cash,
                 starting_inventory: inv,
+                starting_portfolio: port,
                 needs: nrefs,
                 income_per_tick: h.income_per_tick,
             });
@@ -153,19 +173,13 @@ impl Structure {
 
             let mut inputs = Vec::new();
             for it in r.inputs.items {
-                let gid_u32 = good_ids
-                    .map
-                    .get(&it.good_ref)
-                    .ok_or_else(|| anyhow!("rule {} input references unknown good {}", r.id, it.good_ref))?;
+                let gid_u32 = good_ids.map.get(&it.good_ref).ok_or_else(|| anyhow!("rule {} input references unknown good {}", r.id, it.good_ref))?;
                 inputs.push((GoodId(*gid_u32), it.qty));
             }
 
             let mut outputs = Vec::new();
             for it in r.outputs.items {
-                let gid_u32 = good_ids
-                    .map
-                    .get(&it.good_ref)
-                    .ok_or_else(|| anyhow!("rule {} output references unknown good {}", r.id, it.good_ref))?;
+                let gid_u32 = good_ids.map.get(&it.good_ref).ok_or_else(|| anyhow!("rule {} output references unknown good {}", r.id, it.good_ref))?;
                 outputs.push((GoodId(*gid_u32), it.qty));
             }
 
@@ -187,14 +201,20 @@ impl Structure {
             needs,
             household_types,
             production_rules,
+            stocks,
             good_ids,
             need_ids,
             household_type_ids,
             rule_ids,
+            stock_ids,
         })
     }
 
     pub fn good_name(&self, id: GoodId) -> &str {
         &self.goods[id.0 as usize].display_name
+    }
+
+    pub fn stock_name(&self, id: StockId) -> &str {
+        &self.stocks[id.0 as usize].display_name
     }
 }
